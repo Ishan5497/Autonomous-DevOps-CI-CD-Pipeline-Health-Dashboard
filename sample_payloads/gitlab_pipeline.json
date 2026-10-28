@@ -1,0 +1,26 @@
+{
+  "object_kind": "pipeline",
+  "object_attributes": {
+    "id": 98412,
+    "ref": "main",
+    "tag": false,
+    "sha": "da1560886d4f094c3e6c9ef40349f7d38b5d27d7",
+    "status": "success",
+    "detailed_status": "passed",
+    "stages": ["build", "test", "security_scan", "deploy"],
+    "created_at": "2026-10-28 18:05:00 UTC",
+    "finished_at": "2026-10-28 18:05:42 UTC",
+    "duration": 42
+  },
+  "user": {
+    "id": 1,
+    "name": "Ishan",
+    "username": "Ishan5497"
+  },
+  "project": {
+    "id": 4821,
+    "name": "Autonomous-DevOps-CI-CD-Pipeline-Health-Dashboard",
+    "path_with_namespace": "Ishan5497/Autonomous-DevOps-CI-CD-Pipeline-Health-Dashboard",
+    "web_url": "https://gitlab.com/Ishan5497/Autonomous-DevOps-CI-CD-Pipeline-Health-Dashboard"
+  }
+}

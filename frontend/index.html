@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autonomous DevOps & CI/CD Pipeline Health Dashboard</title>
+  <meta name="description" content="Autonomous DevOps & CI/CD pipeline health telemetry, real-time webhook ingestion, and static diff security scanning.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Header / Nav -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-badge">
+          <span class="pulse-indicator"></span>
+          <span class="brand-logo-text">⚡ AUTO-DEVOPS</span>
+        </div>
+        <div class="brand-titles">
+          <h1>Pipeline Health & Security Telemetry</h1>
+          <p class="subtitle">Autonomous CI/CD Diagnostics • Static Diff Analysis • Webhook Ingestion</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <a href="http://127.0.0.1:8000/docs" target="_blank" rel="noopener" class="btn btn-outline" id="api-docs-link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          Interactive API Docs
+        </a>
+        <button class="btn btn-primary" id="btn-seed-data">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Seed Demo Data
+        </button>
+        <button class="btn btn-secondary" id="btn-refresh-all">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="dashboard-main">
+    <!-- Top KPI Grid -->
+    <section class="kpi-grid" id="kpi-cards">
+      <div class="kpi-card glass-panel" id="card-grade">
+        <div class="kpi-header">
+          <span class="kpi-label">Health Grade</span>
+          <span class="kpi-icon-pill grade-pill" id="kpi-grade-badge">A+</span>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-big-value" id="kpi-grade-text">A+</span>
+          <span class="kpi-sub-badge badge-success" id="kpi-risk-badge">Minimal Risk</span>
+        </div>
+        <p class="kpi-caption" id="kpi-grade-caption">Reliability & security criteria passing all autonomous gates</p>
+      </div>
+
+      <div class="kpi-card glass-panel" id="card-success-rate">
+        <div class="kpi-header">
+          <span class="kpi-label">Build Success Rate</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-emerald"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-big-value text-emerald" id="kpi-success-rate">--%</span>
+        </div>
+        <div class="kpi-progress-bar">
+          <div class="kpi-progress-fill" id="kpi-success-fill" style="width: 100%;"></div>
+        </div>
+        <p class="kpi-caption" id="kpi-runs-summary">0 successful / 0 total runs</p>
+      </div>
+
+      <div class="kpi-card glass-panel" id="card-mttr">
+        <div class="kpi-header">
+          <span class="kpi-label">Mean Time To Recovery (MTTR)</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-cyan"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-big-value text-cyan" id="kpi-mttr">--</span>
+        </div>
+        <p class="kpi-caption">Time to recover from broken builds</p>
+      </div>
+
+      <div class="kpi-card glass-panel" id="card-security">
+        <div class="kpi-header">
+          <span class="kpi-label">Security Findings</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-rose"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        </div>
+        <div class="kpi-value-row">
+          <span class="kpi-big-value text-rose" id="kpi-findings-count">0</span>
+          <span class="kpi-sub-badge badge-danger" id="kpi-critical-badge">0 Critical</span>
+        </div>
+        <p class="kpi-caption">Hardcoded secrets & dangerous patterns</p>
+      </div>
+    </section>
+
+    <!-- Autonomous Recommendations -->
+    <section class="section-container">
+      <div class="section-header">
+        <div class="section-title">
+          <span class="indicator-icon">🤖</span>
+          <h2>Autonomous AI Recommendations</h2>
+        </div>
+        <span class="section-badge" id="recs-count">1 Active</span>
+      </div>
+      <div class="recs-list" id="recommendations-container">
+        <!-- Rendered dynamically -->
+        <div class="rec-card glass-panel priority-low">
+          <div class="rec-header">
+            <span class="badge badge-low">AUTONOMOUS_HEALTHY</span>
+            <h4>System Operational</h4>
+          </div>
+          <p>Analyzing incoming telemetry for build stability and secret leaks...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Webhook Simulator & Static Diff Scanner Grid -->
+    <section class="dual-grid">
+      <!-- Webhook Simulator -->
+      <div class="glass-panel panel-container">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            <h3>Interactive Webhook Simulator</h3>
+          </div>
+          <span class="badge badge-info">POST /api/v1/webhooks</span>
+        </div>
+        <p class="panel-desc">Trigger simulated GitHub or GitLab events to test automated ingestion and CI gate interception.</p>
+
+        <div class="sim-actions">
+          <button class="btn btn-outline" id="sim-btn-push">
+            <span class="sim-dot dot-cyan"></span>
+            Simulate Safe Push
+          </button>
+          <button class="btn btn-outline" id="sim-btn-push-vuln">
+            <span class="sim-dot dot-rose"></span>
+            Simulate Vulnerable Push (Secret)
+          </button>
+          <button class="btn btn-outline" id="sim-btn-pr">
+            <span class="sim-dot dot-purple"></span>
+            Simulate Pull Request
+          </button>
+          <button class="btn btn-outline" id="sim-btn-build">
+            <span class="sim-dot dot-emerald"></span>
+            Simulate Passing Build
+          </button>
+          <button class="btn btn-outline" id="sim-btn-build-fail">
+            <span class="sim-dot dot-amber"></span>
+            Simulate Build Failure
+          </button>
+        </div>
+
+        <div class="sim-console">
+          <div class="console-header">
+            <span>Simulator Response Stream</span>
+            <span class="console-status" id="console-status">READY</span>
+          </div>
+          <pre class="console-body" id="sim-response-output">{"ready": true, "message": "Click any button above to dispatch a simulated CI/CD webhook event."}</pre>
+        </div>
+      </div>
+
+      <!-- Live Static Diff Scanner -->
+      <div class="glass-panel panel-container">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <h3>Live Static Analysis Diff Scanner</h3>
+          </div>
+          <span class="badge badge-purple">POST /api/v1/security/scan-diff</span>
+        </div>
+        <p class="panel-desc">Paste unified diffs or code snippets to scan for AWS keys, API tokens, eval(), and SQL injection.</p>
+
+        <div class="diff-input-wrapper">
+          <textarea id="diff-textarea" class="diff-input" rows="7" placeholder="Paste Git diff or code here..."></textarea>
+        </div>
+
+        <div class="diff-actions-row">
+          <button class="btn btn-secondary btn-sm" id="btn-load-vulnerable-sample">Load Leaked Key Diff</button>
+          <button class="btn btn-secondary btn-sm" id="btn-load-eval-sample">Load eval() / SQLi Diff</button>
+          <button class="btn btn-primary" id="btn-run-scan">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            Scan Diff Now
+          </button>
+        </div>
+
+        <div class="scan-results-box" id="scan-results-display" style="display: none;">
+          <div class="scan-header" id="scan-status-banner">
+            <span id="scan-status-title">Scan Result</span>
+            <span id="scan-meta-pill" class="badge">0 Findings</span>
+          </div>
+          <div class="findings-list" id="scan-findings-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recent Pipeline Runs & Security Findings Grid -->
+    <section class="dual-grid">
+      <!-- Pipeline Runs -->
+      <div class="glass-panel panel-container">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+            <h3>Recent Pipeline Executions</h3>
+          </div>
+          <span class="table-count" id="runs-count-badge">0 Runs</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="table-pipeline-runs">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Pipeline / Commit</th>
+                <th>Branch</th>
+                <th>Stage</th>
+                <th>Duration</th>
+                <th>Author</th>
+              </tr>
+            </thead>
+            <tbody id="runs-table-body">
+              <tr>
+                <td colspan="6" class="text-center text-muted">No pipeline runs recorded yet. Click "Seed Demo Data" above.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Security Findings Feed -->
+      <div class="glass-panel panel-container">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <h3>Detected Security Findings</h3>
+          </div>
+          <span class="table-count" id="findings-count-badge">0 Findings</span>
+        </div>
+        <div class="findings-feed" id="findings-feed-body">
+          <div class="text-center text-muted empty-feed">No security findings recorded yet. Safe diffs!</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="footer-content">
+      <span>Autonomous DevOps & CI/CD Pipeline Health Dashboard • FastAPI & SQLAlchemy</span>
+      <span class="footer-links">
+        <a href="https://github.com/Ishan5497/Autonomous-DevOps-CI-CD-Pipeline-Health-Dashboard" target="_blank" rel="noopener">GitHub Repository</a>
+      </span>
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

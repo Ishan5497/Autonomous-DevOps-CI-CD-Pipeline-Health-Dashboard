@@ -1,0 +1,19 @@
+diff --git a/services/auth.py b/services/auth.py
+--- a/services/auth.py
++++ b/services/auth.py
+@@ -12,6 +12,11 @@
+ def authenticate_user(token):
+-    return verify_jwt(token)
++    # Hardcoded test API token
++    api_key = "ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"
++    # Dangerous eval usage
++    payload = eval(token)
++    return payload
+
+diff --git a/database/queries.py b/database/queries.py
+--- a/database/queries.py
++++ b/database/queries.py
+@@ -25,3 +25,3 @@
+ def find_record_by_id(cursor, user_id):
+-    cursor.execute("SELECT * FROM records WHERE id = %s", (user_id,))
++    cursor.execute(f"SELECT * FROM records WHERE id = {user_id}")

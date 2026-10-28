@@ -1,0 +1,26 @@
+{
+  "action": "opened",
+  "number": 42,
+  "pull_request": {
+    "number": 42,
+    "title": "feat: introduce autonomous pipeline health monitor & static diff scanner",
+    "state": "open",
+    "user": {
+      "login": "Ishan5497"
+    },
+    "head": {
+      "ref": "feature/autonomous-health-monitor",
+      "sha": "7b9e3f28a1c90d5e4f3a2b1c0d9e8f7a6b5c4d3e"
+    },
+    "base": {
+      "ref": "main"
+    }
+  },
+  "repository": {
+    "name": "Autonomous-DevOps-CI-CD-Pipeline-Health-Dashboard",
+    "full_name": "Ishan5497/Autonomous-DevOps-CI-CD-Pipeline-Health-Dashboard"
+  },
+  "sender": {
+    "login": "Ishan5497"
+  }
+}

@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  pipeline-health-dashboard:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: devops-pipeline-health
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - DATABASE_URL=sqlite:///./pipeline_health.db
+      - ENVIRONMENT=production
+    volumes:
+      - pipeline_data:/app
+    restart: unless-stopped
+
+volumes:
+  pipeline_data:
