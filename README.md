@@ -1,13 +1,15 @@
 # Autonomous DevOps & CI/CD Pipeline Health Dashboard
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg?style=flat&logo=FastAPI&logoColor=white)](https://fastapi.tiangolo.com)
+[![WebSocket](https://img.shields.io/badge/WebSocket-Real--Time-blueviolet.svg)](https://websockets.readthedocs.io/)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![React 19](https://img.shields.io/badge/React-19.3-61DAFB.svg?logo=react&logoColor=black)](https://react.dev/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0+-red.svg?logo=sqlalchemy&logoColor=white)](https://www.sqlalchemy.org/)
 [![SQLite](https://img.shields.io/badge/SQLite3-Database-003B57.svg?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
-[![Tests](https://img.shields.io/badge/pytest-15%20passed-brightgreen.svg?logo=pytest&logoColor=white)](#running-tests)
+[![Tests](https://img.shields.io/badge/pytest-20%20passed-brightgreen.svg?logo=pytest&logoColor=white)](#running-tests)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An end-to-end full-stack platform for monitoring CI/CD pipeline reliability, processing simulated & native GitHub/GitLab webhooks, calculating Mean Time To Recovery (MTTR) and health grades, and autonomously scanning commit diffs for hardcoded secrets and critical code bugs.
+An end-to-end full-stack platform for monitoring CI/CD pipeline reliability, processing simulated & native GitHub/GitLab webhooks, calculating Mean Time To Recovery (MTTR) and health grades, and autonomously scanning commit diffs for hardcoded secrets and critical code bugs with instant WebSocket real-time telemetry streaming.
 
 ---
 
@@ -130,10 +132,37 @@ Scans incoming diffs or source code patches for high-impact security risks and c
   - Silent exception swallowing (`except: pass`)
 - **Automatic Secret Redaction**: Replaces raw secrets with masked strings (e.g. `AKIA****************LE`) to prevent exposure in logs or UI.
 
-### 3. Autonomous Pipeline Health & MTTR Metrics
+### 3. Real-Time Telemetry & WebSocket Streaming
+- **WebSocket Manager (`ws_manager`)**: Centralized broadcast hub tracking connected clients with heartbeat keep-alives and automatic reconnection.
+- **Instant Event Broadcasts**:
+  - `PIPELINE_UPDATE`: Broadcasts every commit push, pull request, or stage transition with embedded metrics.
+  - `BUILD_FAILURE`: Instant notification when a build fails or is blocked by static analysis gates.
+  - `SECURITY_ALERT`: Real-time alarm triggered upon detecting hardcoded secrets or critical vulnerabilities in diffs.
+- **React WebSocket Hook (`useWebSocket`)**: Auto-reconnecting frontend hook that streams live events directly into the telemetry activity feed and dynamically updates dashboard KPI cards without page reload.
+
+### 4. Autonomous Pipeline Health & MTTR Metrics
 - **Health Grade (A+, A, B, C, F)**: Derived from real-time build success rate and vulnerability threshold.
 - **Mean Time To Recovery (MTTR)**: Analyzes time elapsed between build failures and subsequent successful recoveries.
 - **Autonomous Remediation Recommendations**: Generates contextual remediation actions (e.g., quarantine pipeline on critical leak, retry flaky build stages, or optimize build duration).
+
+---
+
+## Live Webhook Traffic Simulator
+
+To visually verify the real-time activity stream and dynamic metric counters during local development, use the included CLI simulator utility:
+
+```bash
+# Run continuous live simulation (dispatches every 3 seconds)
+python simulate_live.py
+
+# Or run with custom interval and count
+python simulate_live.py --interval 2.0 --count 15
+
+# Target specific event scenario types:
+python simulate_live.py --mode failures    # Focus on failing builds and timeouts
+python simulate_live.py --mode secrets     # Trigger static analysis secret leaks
+python simulate_live.py --mode clean       # Safe commits and successful builds
+```
 
 ---
 
@@ -200,7 +229,7 @@ docker compose down
 
 ## Running Tests
 
-Run the complete 15-test test suite with `pytest`:
+Run the complete 20-test test suite with `pytest`:
 
 ```bash
 pytest -v
@@ -223,7 +252,12 @@ tests/test_webhooks.py::test_simulate_pull_request PASSED
 tests/test_webhooks.py::test_simulate_build_status PASSED
 tests/test_webhooks.py::test_github_webhook_receiver PASSED
 tests/test_webhooks.py::test_gitlab_webhook_receiver PASSED
-============================== 15 passed in 1.10s ==============================
+tests/test_websocket.py::test_websocket_status_endpoint PASSED
+tests/test_websocket.py::test_websocket_handshake_and_ping PASSED
+tests/test_websocket.py::test_websocket_broadcasts_pipeline_update PASSED
+tests/test_websocket.py::test_websocket_broadcasts_security_alert_and_build_failure PASSED
+tests/test_websocket.py::test_websocket_broadcasts_simulated_build_status PASSED
+============================== 20 passed in 1.15s ==============================
 ```
 
 ---
@@ -234,6 +268,8 @@ tests/test_webhooks.py::test_gitlab_webhook_receiver PASSED
 |---|---|---|
 | `GET` | `/` | Root API status and available endpoint index |
 | `GET` | `/dashboard` | Interactive frontend telemetry dashboard |
+| `WS` | `/api/v1/ws` | Real-time WebSocket telemetry event stream |
+| `GET` | `/api/v1/ws/status` | WebSocket broadcaster status and active client count |
 | `GET` | `/docs` | OpenAPI Swagger interactive documentation |
 | `POST` | `/api/v1/webhooks/github` | Ingest native GitHub webhook events |
 | `POST` | `/api/v1/webhooks/gitlab` | Ingest native GitLab webhook events |

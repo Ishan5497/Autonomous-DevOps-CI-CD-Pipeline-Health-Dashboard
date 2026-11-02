@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
 
@@ -11,12 +11,26 @@ from backend.models.schemas import (
     DiffScanResponse,
 )
 from backend.services.static_analysis import StaticAnalysisService
+from backend.services.websocket_manager import ws_manager
+from backend.services.pipeline_health import PipelineHealthService
+from backend.models.database import SessionLocal
+
+
+def _get_current_metrics_dict() -> Optional[Dict[str, Any]]:
+    """Safely compute current health metrics for WebSocket broadcast payloads."""
+    try:
+        with SessionLocal() as db:
+            metrics = PipelineHealthService.calculate_health(db)
+            return metrics.model_dump()
+    except Exception:
+        return None
 
 
 class WebhookService:
     """
     Service responsible for parsing and routing GitHub and GitLab webhook events,
     recording pipeline runs, pull requests, and triggering static analysis.
+    All mutations broadcast real-time updates via the WebSocket manager.
     """
 
     @classmethod
@@ -39,7 +53,7 @@ class WebhookService:
             sender=sender,
             payload=json.dumps(payload),
             status=status,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         db.add(event)
         db.commit()
@@ -102,16 +116,39 @@ class WebhookService:
                 status="running",
                 stage="build",
                 duration_seconds=0.0,
-                started_at=datetime.utcnow(),
+                started_at=datetime.now(timezone.utc),
             )
             db.add(run)
             db.commit()
+
+            # Broadcast via WebSocket
+            metrics = _get_current_metrics_dict()
+            run_broadcast = {
+                "pipeline_id": run.pipeline_id,
+                "repository": repo_name,
+                "branch": branch,
+                "commit_sha": commit_sha,
+                "commit_message": commit_msg,
+                "author": author,
+                "status": "running",
+                "stage": "build",
+                "duration_seconds": 0.0,
+            }
+            ws_manager.broadcast_pipeline_update(run_broadcast, metrics)
+
+            if scan_result and not scan_result.is_safe:
+                ws_manager.broadcast_security_alert(
+                    findings=[f.model_dump() for f in scan_result.findings],
+                    repository=repo_name,
+                    commit_sha=commit_sha,
+                    metrics=metrics,
+                )
 
             return {
                 "status": "success",
                 "message": f"Push event processed for branch {branch}",
                 "commit_sha": commit_sha,
-                "static_analysis": scan_result.dict() if scan_result else None,
+                "static_analysis": scan_result.model_dump() if scan_result else None,
             }
 
         elif event_type == "pull_request":
@@ -144,7 +181,7 @@ class WebhookService:
                 pr.action = action
                 pr.state = "open" if action in ("opened", "reopened", "synchronize") else action
                 pr.head_sha = head_sha
-                pr.updated_at = datetime.utcnow()
+                pr.updated_at = datetime.now(timezone.utc)
 
             # Scan diff if supplied
             diff_text = payload.get("diff") or pr_data.get("diff")
@@ -162,7 +199,7 @@ class WebhookService:
                 "status": "success",
                 "message": f"Pull request #{pr_number} ({action}) processed",
                 "pr_number": pr_number,
-                "static_analysis": scan_result.dict() if scan_result else None,
+                "static_analysis": scan_result.model_dump() if scan_result else None,
             }
 
         elif event_type in ("workflow_run", "check_run"):
@@ -200,9 +237,28 @@ class WebhookService:
             else:
                 run.status = normalized_status
                 if normalized_status in ("success", "failed", "cancelled"):
-                    run.completed_at = datetime.utcnow()
+                    run.completed_at = datetime.now(timezone.utc)
 
             db.commit()
+
+            # Broadcast via WebSocket
+            metrics = _get_current_metrics_dict()
+            run_broadcast = {
+                "pipeline_id": run_id,
+                "repository": repo_name,
+                "branch": branch,
+                "commit_sha": commit_sha,
+                "commit_message": run_data.get("display_title", "GitHub Action run"),
+                "author": sender,
+                "status": normalized_status,
+                "stage": "workflow",
+                "duration_seconds": run_data.get("run_duration_ms", 30000) / 1000.0,
+            }
+            if normalized_status == "failed":
+                ws_manager.broadcast_build_failure(run_broadcast, metrics=metrics)
+            else:
+                ws_manager.broadcast_pipeline_update(run_broadcast, metrics)
+
             return {"status": "success", "pipeline_id": run_id, "build_status": normalized_status}
 
         return {"status": "acknowledged", "event_type": event_type}
@@ -259,11 +315,34 @@ class WebhookService:
             db.add(run)
             db.commit()
 
+            # Broadcast via WebSocket
+            metrics = _get_current_metrics_dict()
+            run_broadcast = {
+                "pipeline_id": run.pipeline_id,
+                "repository": repo_name,
+                "branch": branch,
+                "commit_sha": commit_sha,
+                "commit_message": commit_msg,
+                "author": user_name,
+                "status": "running",
+                "stage": "build",
+                "duration_seconds": 0.0,
+            }
+            ws_manager.broadcast_pipeline_update(run_broadcast, metrics)
+
+            if scan_result and not scan_result.is_safe:
+                ws_manager.broadcast_security_alert(
+                    findings=[f.model_dump() for f in scan_result.findings],
+                    repository=repo_name,
+                    commit_sha=commit_sha,
+                    metrics=metrics,
+                )
+
             return {
                 "status": "success",
                 "message": f"GitLab Push Hook processed for {branch}",
                 "commit_sha": commit_sha,
-                "static_analysis": scan_result.dict() if scan_result else None,
+                "static_analysis": scan_result.model_dump() if scan_result else None,
             }
 
         elif "Pipeline" in event_type or payload.get("object_kind") == "pipeline":
@@ -301,9 +380,28 @@ class WebhookService:
                 run.status = normalized_status
                 run.duration_seconds = duration
                 if normalized_status in ("success", "failed"):
-                    run.completed_at = datetime.utcnow()
+                    run.completed_at = datetime.now(timezone.utc)
 
             db.commit()
+
+            # Broadcast via WebSocket
+            metrics = _get_current_metrics_dict()
+            run_broadcast = {
+                "pipeline_id": pipeline_id,
+                "repository": repo_name,
+                "branch": branch,
+                "commit_sha": sha,
+                "commit_message": "GitLab CI Pipeline",
+                "author": user_name,
+                "status": normalized_status,
+                "stage": "pipeline",
+                "duration_seconds": duration,
+            }
+            if normalized_status == "failed":
+                ws_manager.broadcast_build_failure(run_broadcast, metrics=metrics)
+            else:
+                ws_manager.broadcast_pipeline_update(run_broadcast, metrics)
+
             return {"status": "success", "pipeline_id": pipeline_id, "build_status": normalized_status}
 
         return {"status": "acknowledged", "event_type": event_type}
@@ -351,10 +449,38 @@ class WebhookService:
             stage="lint_and_build",
             duration_seconds=12.4,
             failure_reason=failure_reason,
-            completed_at=datetime.utcnow(),
+            completed_at=datetime.now(timezone.utc),
         )
         db.add(run)
         db.commit()
+
+        # Broadcast real-time updates via WebSocket
+        metrics = _get_current_metrics_dict()
+        run_data = {
+            "pipeline_id": run.pipeline_id,
+            "repository": run.repository,
+            "branch": run.branch,
+            "commit_sha": run.commit_sha,
+            "commit_message": run.commit_message,
+            "author": run.author,
+            "status": run.status,
+            "stage": run.stage,
+            "duration_seconds": run.duration_seconds,
+            "failure_reason": run.failure_reason,
+        }
+
+        if pipeline_status == "failed":
+            ws_manager.broadcast_build_failure(run_data, failure_reason, metrics)
+        else:
+            ws_manager.broadcast_pipeline_update(run_data, metrics)
+
+        if scan_result and not scan_result.is_safe:
+            ws_manager.broadcast_security_alert(
+                findings=[f.model_dump() for f in scan_result.findings],
+                repository=payload.repository,
+                commit_sha=payload.commit_sha,
+                metrics=metrics,
+            )
 
         return {
             "status": "success",
@@ -408,9 +534,32 @@ class WebhookService:
             pr.action = payload.action
             pr.state = "open" if payload.action in ("opened", "reopened", "synchronize") else payload.action
             pr.head_sha = payload.head_sha
-            pr.updated_at = datetime.utcnow()
+            pr.updated_at = datetime.now(timezone.utc)
 
         db.commit()
+
+        # Broadcast PR update via WebSocket
+        metrics = _get_current_metrics_dict()
+        pr_data = {
+            "pipeline_id": f"pr-{payload.pr_number}",
+            "repository": payload.repository,
+            "branch": payload.head_branch,
+            "commit_sha": payload.head_sha,
+            "commit_message": payload.title,
+            "author": payload.author,
+            "status": payload.action,
+            "stage": "pull_request",
+            "duration_seconds": 0,
+        }
+        ws_manager.broadcast_pipeline_update(pr_data, metrics)
+
+        if scan_result and not scan_result.is_safe:
+            ws_manager.broadcast_security_alert(
+                findings=[f.model_dump() for f in scan_result.findings],
+                repository=payload.repository,
+                commit_sha=payload.head_sha,
+                metrics=metrics,
+            )
 
         return {
             "status": "success",
@@ -444,7 +593,7 @@ class WebhookService:
                 stage=payload.stage,
                 duration_seconds=payload.duration_seconds,
                 failure_reason=payload.failure_reason,
-                completed_at=datetime.utcnow() if payload.status.lower() in ("success", "failed", "cancelled") else None,
+                completed_at=datetime.now(timezone.utc) if payload.status.lower() in ("success", "failed", "cancelled") else None,
             )
             db.add(run)
         else:
@@ -453,9 +602,30 @@ class WebhookService:
             run.duration_seconds = payload.duration_seconds
             run.failure_reason = payload.failure_reason
             if payload.status.lower() in ("success", "failed", "cancelled"):
-                run.completed_at = datetime.utcnow()
+                run.completed_at = datetime.now(timezone.utc)
 
         db.commit()
+
+        # Broadcast build status update via WebSocket
+        metrics = _get_current_metrics_dict()
+        run_data = {
+            "pipeline_id": payload.pipeline_id,
+            "repository": payload.repository,
+            "branch": payload.branch,
+            "commit_sha": payload.commit_sha,
+            "commit_message": payload.commit_message,
+            "author": payload.author,
+            "status": payload.status.lower(),
+            "stage": payload.stage,
+            "duration_seconds": payload.duration_seconds,
+            "failure_reason": payload.failure_reason,
+        }
+
+        if payload.status.lower() == "failed":
+            ws_manager.broadcast_build_failure(run_data, payload.failure_reason, metrics)
+        else:
+            ws_manager.broadcast_pipeline_update(run_data, metrics)
+
         return {
             "status": "success",
             "message": f"Pipeline run '{payload.pipeline_id}' updated to status '{payload.status}'",
@@ -485,7 +655,7 @@ class WebhookService:
                 description=finding.description,
                 snippet_redacted=finding.snippet_redacted,
                 recommendation=finding.recommendation,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
             db.add(db_finding)
         db.commit()

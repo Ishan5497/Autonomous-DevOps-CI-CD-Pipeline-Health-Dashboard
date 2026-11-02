@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import random
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -30,7 +30,7 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
         "database": "SQLite (models/database.py)",
         "active_rules_count": len(StaticAnalysisService.SECRET_RULES) + len(StaticAnalysisService.BUG_RULES),
         "status": "OPERATIONAL",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     return DashboardSummaryResponse(
@@ -55,7 +55,7 @@ def seed_demo_data(db: Session = Depends(get_db)):
     if existing_count >= 5:
         return {"status": "ok", "message": f"Database already has {existing_count} runs. Skipping seed."}
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     stages = ["lint", "test", "build", "deploy", "security_scan"]
     branches = ["main", "feature/autonomous-healing", "fix/docker-cache", "refactor/services"]
     authors = ["ishan-dev", "alex-ops", "github-actions[bot]", "ci-runner"]
